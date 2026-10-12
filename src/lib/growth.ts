@@ -27,6 +27,19 @@ export const DAYS_PER_WEEK = 7;
 /** The percentile lines drawn on the chart. */
 export const STANDARD_PERCENTILES = [3, 10, 25, 50, 75, 90, 97] as const;
 
+/**
+ * The chart lines just below and just above a percentile, for example 10 and 25
+ * for the 12th. Uses the whole-number percentile people see, so a point shown as
+ * "10th" sits between the 3rd and 25th lines. Below the 3rd there is no line
+ * under it, and above the 97th there is no line over it; those sides are null.
+ */
+export function neighborPercentiles(p: number): { below: number | null; above: number | null } {
+  const r = Math.round(p);
+  const below = [...STANDARD_PERCENTILES].reverse().find((s) => s < r) ?? null;
+  const above = STANDARD_PERCENTILES.find((s) => s > r) ?? null;
+  return { below, above };
+}
+
 /** L, M and S for an age in days. Ages between whole days are interpolated. */
 export function lmsAt(metric: Metric, sex: Sex, ageDays: number): LMS {
   const t = tables[metric][sex];
