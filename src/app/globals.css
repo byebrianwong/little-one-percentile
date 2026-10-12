@@ -1,0 +1,260 @@
+@import "tailwindcss";
+
+/* Colour tokens. The chart uses one blue for the percentile bands (lightest at the
+   extremes) and orange only for the baby's own points, so the two never compete.
+   The median blue and the orange were checked for colour-blind separation and
+   contrast in both modes. */
+:root {
+  color-scheme: light;
+  --bg: #f7f4ee;
+  --surface: #ffffff;
+  --surface-2: #f5f2ec;
+  --ink: #1d1b18;
+  --ink-2: #55524c;
+  --ink-3: #7c786f;
+  --line: #ebe6dd;
+  --grid: #f0ece5;
+  --axis: #cfc9be;
+
+  --band-0: #f1f6fd;
+  --band-1: #e3eefc;
+  --band-2: #cde2fb;
+  --band-3: #b7d3f6;
+  --pline: #86b6ef;
+  --median: #1c5cab;
+  --highlight: #184f95;
+  --highlight-ink: #184f95;
+  --accent: #eb6834;
+  --accent-ink: #b8461a;
+  --danger: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface: #1b1b19;
+    --surface-2: #242421;
+    --ink: #f4f3ee;
+    --ink-2: #c3c2b7;
+    --ink-3: #8f8d85;
+    --line: #2e2d2a;
+    --grid: #252522;
+    --axis: #45443f;
+
+    --band-0: #172131;
+    --band-1: #182a42;
+    --band-2: #1c3554;
+    --band-3: #224168;
+    --pline: #33598a;
+    --median: #3987e5;
+    --highlight: #6da7ec;
+    --highlight-ink: #86b6ef;
+    --accent: #d95926;
+    --accent-ink: #f08a5d;
+    --danger: #f97066;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211;
+  --surface: #1b1b19;
+  --surface-2: #242421;
+  --ink: #f4f3ee;
+  --ink-2: #c3c2b7;
+  --ink-3: #8f8d85;
+  --line: #2e2d2a;
+  --grid: #252522;
+  --axis: #45443f;
+  --band-0: #172131;
+  --band-1: #182a42;
+  --band-2: #1c3554;
+  --band-3: #224168;
+  --pline: #33598a;
+  --median: #3987e5;
+  --highlight: #6da7ec;
+  --highlight-ink: #86b6ef;
+  --accent: #d95926;
+  --accent-ink: #f08a5d;
+  --danger: #f97066;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-fraunces);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-optical-sizing: auto;
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 1.25rem;
+  }
+
+  .segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .segmented button {
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    transition: background-color 120ms, color 120ms;
+  }
+  @media (min-width: 640px) {
+    .segmented button {
+      padding: 0.45rem 0.95rem;
+    }
+  }
+  .segmented button:hover {
+    color: var(--ink);
+  }
+  .segmented button[data-on] {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .segmented-sm {
+    background: var(--surface-2);
+    border-color: transparent;
+  }
+  .segmented-sm button {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+  }
+  .segmented-sm button[data-on] {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    font-variant-numeric: tabular-nums;
+    transition: background-color 120ms, color 120ms;
+  }
+  .chip:hover {
+    color: var(--ink);
+  }
+  .chip[data-on] {
+    background: var(--highlight);
+    color: #fff;
+  }
+
+  .input {
+    border-radius: 0.6rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0.5rem 0.7rem;
+    font-size: 0.875rem;
+    outline: none;
+  }
+  .input:focus {
+    border-color: var(--highlight);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 20%, transparent);
+  }
+
+  .btn-accent {
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.55rem 1.05rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: opacity 120ms;
+  }
+  .btn-accent:hover {
+    opacity: 0.88;
+  }
+  .btn-ghost {
+    border-radius: 999px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+  }
+  .btn-ghost:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .btn-step {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 1.1rem;
+  }
+  .btn-step:disabled {
+    opacity: 0.35;
+  }
+
+  .slider {
+    appearance: none;
+    height: 2rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  .slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--band-2);
+  }
+  .slider::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--band-2);
+  }
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    margin-top: -8px;
+    border-radius: 999px;
+    background: var(--highlight);
+    border: 3px solid var(--surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  }
+  .slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--highlight);
+    border: 3px solid var(--surface);
+  }
+}
+
+button {
+  cursor: pointer;
+}
+button:focus-visible,
+.slider:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
+}
