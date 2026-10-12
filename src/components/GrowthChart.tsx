@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   STANDARD_PERCENTILES,
+  neighborPercentiles,
   percentileFromValue,
   valueAtPercentile,
   valueFromZ,
@@ -14,6 +15,7 @@ import {
   capitalize,
   formatAge,
   formatAgeTick,
+  formatDelta,
   formatPercentile,
   formatTick,
   formatValue,
@@ -237,6 +239,17 @@ export default function GrowthChart(props: Props) {
   const babyLine = visibleBaby.length > 1 ? visibleBaby.map((b, i) => `${i ? "L" : "M"}${x(b.ageDays)},${y(b.value)}`).join("") : null;
 
   const hoverPct = hover ? percentileFromValue(metric, sex, hover.ageDays, hover.value) : null;
+  // The chart lines just above and below the hovered point, top one first.
+  const hoverNeighbors =
+    hover && hoverPct !== null
+      ? (() => {
+          const { below, above } = neighborPercentiles(hoverPct);
+          return [above, below]
+            .filter((p): p is number => p !== null)
+            .map((p) => ({ p, value: valueAtPercentile(metric, sex, hover.ageDays, p) }));
+        })()
+      : [];
+  const neighborSet = new Set(hoverNeighbors.map((n) => n.p));
   const tipLeft = hover ? x(hover.ageDays) : 0;
   const tipFlip = tipLeft > width - 230;
 
@@ -296,6 +309,11 @@ export default function GrowthChart(props: Props) {
           />
         ))}
 
+        {/* the two lines around the hovered point, drawn stronger */}
+        {hoverNeighbors.map((n) => (
+          <path key={n.p} d={path(curves.lines.get(n.p)!)} fill="none" stroke="var(--median)" strokeWidth={1.75} pointerEvents="none" />
+        ))}
+
         {/* explore: the chosen percentile and age */}
         {exploreLine && exploreDot && explore && (
           <g>
@@ -313,8 +331,8 @@ export default function GrowthChart(props: Props) {
               x={M.left + innerW + 6}
               y={l.y}
               dy="0.32em"
-              fill={l.bold ? "var(--ink)" : "var(--ink-3)"}
-              fontWeight={l.bold ? 600 : 400}
+              fill={l.bold || neighborSet.has(l.p) ? "var(--ink)" : "var(--ink-3)"}
+              fontWeight={l.bold || neighborSet.has(l.p) ? 600 : 400}
             >
               {ordinal(l.p)}
             </text>
@@ -347,6 +365,9 @@ export default function GrowthChart(props: Props) {
         {hover && (
           <g pointerEvents="none">
             <line x1={x(hover.ageDays)} x2={x(hover.ageDays)} y1={M.top} y2={M.top + innerH} stroke="var(--ink-3)" strokeWidth={1} />
+            {hoverNeighbors.map((n) => (
+              <circle key={n.p} cx={x(hover.ageDays)} cy={y(n.value)} r={3.5} fill="var(--surface)" stroke="var(--median)" strokeWidth={1.75} />
+            ))}
             <circle cx={x(hover.ageDays)} cy={y(hover.value)} r={4} fill="var(--ink)" stroke="var(--surface)" strokeWidth={2} />
           </g>
         )}
@@ -371,7 +392,7 @@ export default function GrowthChart(props: Props) {
         <div
           className="pointer-events-none absolute z-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs shadow-lg"
           style={{
-            top: Math.max(0, Math.min(y(hover.value) - 30, height - 80)),
+            top: Math.max(0, Math.min(y(hover.value) - 30, height - 130)),
             left: tipFlip ? undefined : tipLeft + 14,
             right: tipFlip ? width - tipLeft + 14 : undefined,
           }}
@@ -381,6 +402,20 @@ export default function GrowthChart(props: Props) {
             <span className="font-semibold text-[var(--ink)]">{formatValue(metric, units, hover.value)}</span>
             <span className="text-[var(--ink-2)]"> · {formatPercentile(hoverPct)} percentile</span>
           </div>
+          {hoverNeighbors.length > 0 && (
+            <div className="mt-1.5 grid grid-cols-[auto_auto_auto] gap-x-3 gap-y-0.5 border-t border-[var(--line)] pt-1.5 tabular-nums whitespace-nowrap">
+              {hoverNeighbors.map((n) => (
+                <div key={n.p} className="contents">
+                  <span className="text-[var(--ink-2)]">{ordinal(n.p)}</span>
+                  <span className="text-[var(--ink)]">{formatValue(metric, units, n.value)}</span>
+                  <span className="text-[var(--ink-3)]">
+                    {n.value >= hover.value ? "+" : "−"}
+                    {formatDelta(metric, units, n.value - hover.value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

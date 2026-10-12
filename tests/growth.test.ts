@@ -1,7 +1,7 @@
 // Checks the growth math against values printed in the WHO percentile tables.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { percentileFromValue, valueAtPercentile, valueFromZ, zFromValue } from "../src/lib/growth";
+import { neighborPercentiles, percentileFromValue, valueAtPercentile, valueFromZ, zFromValue } from "../src/lib/growth";
 import { formatAge, formatPercentile, formatValue } from "../src/lib/format";
 import { snapAge } from "../src/lib/ages";
 
@@ -52,4 +52,11 @@ test("chart snapping lands on ages with exact labels", () => {
   assert.equal(snapAge(93), 91);
   assert.equal(snapAge(5.4), 5);
   assert.equal(formatAge(snapAge(200)), "6½ months");
+});
+
+test("finds the chart lines around a percentile", () => {
+  assert.deepEqual(neighborPercentiles(12), { below: 10, above: 25 });
+  assert.deepEqual(neighborPercentiles(10.2), { below: 3, above: 25 });
+  assert.deepEqual(neighborPercentiles(1.5), { below: null, above: 3 });
+  assert.deepEqual(neighborPercentiles(98.9), { below: 97, above: null });
 });
