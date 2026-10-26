@@ -209,26 +209,35 @@ export default function App() {
         <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <section ref={chartRef} className="card scroll-mt-4 p-5 sm:p-6" aria-label="Growth chart">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              {babyPoints.length > 0 ? (
-                <Segmented
-                  label="View"
-                  small
-                  value={mode === "explore" ? "explore" : mode === "baby" ? "baby" : ""}
-                  onChange={(v) => {
-                    setProbe(null);
-                    setView(v as "explore" | "baby");
-                    if (v === "baby" && selectedBabyPoint) showAge(selectedBabyPoint.ageDays);
-                  }}
-                  options={[
-                    ["baby", baby?.name.trim() || "My baby"],
-                    ["explore", "Explore"],
-                  ]}
-                />
-              ) : (
-                <span className="text-xs font-medium tracking-wide text-[var(--ink-3)] uppercase">
-                  {mode === "probe" ? "Pinned point" : "Exploring"}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {babyPoints.length > 0 ? (
+                  <Segmented
+                    label="View"
+                    small
+                    value={mode === "explore" ? "explore" : mode === "baby" ? "baby" : ""}
+                    onChange={(v) => {
+                      setProbe(null);
+                      setView(v as "explore" | "baby");
+                      if (v === "baby" && selectedBabyPoint) showAge(selectedBabyPoint.ageDays);
+                    }}
+                    options={[
+                      ["baby", baby?.name.trim() || "My baby"],
+                      ["explore", "Explore"],
+                    ]}
+                  />
+                ) : (
+                  // On a phone the Clear button takes the label's place, so this row
+                  // does not wrap and push the chart down when a point is pinned.
+                  <span className={`text-xs font-medium tracking-wide text-[var(--ink-3)] uppercase ${mode === "probe" ? "hidden sm:inline" : ""}`}>
+                    {mode === "probe" ? "Pinned point" : "Exploring"}
+                  </span>
+                )}
+                {mode === "probe" && (
+                  <button onClick={() => setProbe(null)} className="btn-ghost" aria-label="Clear the pinned point">
+                    Clear
+                  </button>
+                )}
+              </div>
               <Segmented
                 label="Age range"
                 small
@@ -246,7 +255,6 @@ export default function App() {
               units={units}
               insight={insight}
               babyName={baby?.name ?? ""}
-              onClearProbe={() => setProbe(null)}
             />
 
             <div className="mt-4 -mx-2 sm:mx-0">

@@ -14,14 +14,13 @@ interface Props {
   insight: Insight;
   babyName: string;
   onSaveProbe?: () => void;
-  onClearProbe?: () => void;
   /** The headline sits above the chart; the details sit below it. */
   part: "headline" | "details";
 }
 
 const LESS: Record<Metric, string> = { weight: "weigh less", length: "are shorter", head: "have a smaller head" };
 
-export default function InsightPanel({ mode, sex, metric, units, insight, babyName, onSaveProbe, onClearProbe, part }: Props) {
+export default function InsightPanel({ mode, sex, metric, units, insight, babyName, onSaveProbe, part }: Props) {
   const v = (n: number) => formatValue(metric, units, n);
   const d = (n: number) => formatDelta(metric, units, n);
   const age = formatAge(insight.ageDays);
@@ -29,28 +28,34 @@ export default function InsightPanel({ mode, sex, metric, units, insight, babyNa
   const kids = sex === "girl" ? "girls" : "boys";
   const pct = formatPercentile(insight.percentile);
   const pctWord = mode === "explore" ? ordinal(Math.round(insight.percentile)) : pct;
-  const name = babyName.trim() || "Your baby";
+  const name = babyName.trim() || "your baby";
+  const value = v(insight.value);
 
-  const measure = (value: string) =>
-    metric === "weight" ? <>weighs <B>{value}</B></> : metric === "length" ? <>is <B>{value}</B> long</> : <>has a head circumference of <B>{value}</B></>;
+  // The headline sits above the chart, so the sentences are kept short enough
+  // to fit on one line. When the line count changes, the chart moves.
+  const measure = metric === "weight" ? <>weighs <B>{value}</B></> : metric === "length" ? <>is <B>{value}</B> long</> : <>has a <B>{value}</B> head</>;
+  // formatPercentile gives "below 1st" or "above 99th" at the extremes. Those read "below the 1st percentile".
+  const extreme = /^(above|below) /.test(pct);
+  const pctPhrase = <B wrap>{extreme ? pct.replace(" ", " the ") : pct} percentile</B>;
 
   let headline: React.ReactNode;
   if (mode === "explore") {
     headline = (
       <>
-        At {age}, a {kid} on the <B>{pctWord} percentile</B> {measure(v(insight.value))}.
+        At {age}, a {kid} on the <B wrap>{pctWord} percentile</B> {measure}.
       </>
     );
   } else if (mode === "probe") {
     headline = (
       <>
-        At {age}, a {kid} who {measure(v(insight.value))} is on the <B>{pct} percentile</B>.
+        At {age}, {metric === "head" ? <>a <B>{value}</B> head</> : <B>{value}</B>} is {!extreme && "the "}
+        {pctPhrase} for {kids}.
       </>
     );
   } else {
     headline = (
       <>
-        {name} is on the <B>{pct} percentile</B> for {metric === "head" ? "head size" : metric}: <span className="whitespace-nowrap">{v(insight.value)}</span> at {age}.
+        At {age}, {name} {measure} ({pctPhrase}).
       </>
     );
   }
@@ -64,15 +69,12 @@ export default function InsightPanel({ mode, sex, metric, units, insight, babyNa
 
   if (part === "headline") {
     return (
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-display text-[1.35rem] leading-snug text-[var(--ink)] sm:text-[1.6rem]" aria-live="polite">
+      // The font size follows the width of this box (cqi), so the same sentence
+      // stays on one line at most widths. On a phone it takes two lines.
+      <div className="@container">
+        <p className="font-display text-[length:clamp(1.0625rem,3.1cqi,1.6rem)] leading-snug text-[var(--ink)]" aria-live="polite">
           {headline}
         </p>
-        {mode === "probe" && onClearProbe && (
-          <button onClick={onClearProbe} className="btn-ghost shrink-0" aria-label="Clear the pinned point">
-            Clear
-          </button>
-        )}
       </div>
     );
   }
@@ -135,8 +137,9 @@ export default function InsightPanel({ mode, sex, metric, units, insight, babyNa
   );
 }
 
-function B({ children }: { children: React.ReactNode }) {
-  return <strong className="font-semibold whitespace-nowrap">{children}</strong>;
+/** Bold text. A value such as "12 lb 4 oz" stays on one line; a percentile phrase may wrap on a phone. */
+function B({ children, wrap }: { children: React.ReactNode; wrap?: boolean }) {
+  return <strong className={wrap ? "font-semibold" : "font-semibold whitespace-nowrap"}>{children}</strong>;
 }
 
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
