@@ -140,6 +140,44 @@ export function daysBetween(birth: string, on: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
+/**
+ * The exact age on a date, counted from the birthday. Weeks and days until the
+ * baby turns 6 months, then calendar months, weeks and days:
+ * "5 days", "15 weeks, 3 days", "7 months, 2 weeks, 1 day".
+ * Returns null when the date is before the birthday.
+ */
+export function formatExactAge(birth: string, on: string): string | null {
+  const total = daysBetween(birth, on);
+  if (!(total >= 0)) return null;
+  const months = wholeMonths(birth, on);
+  const parts: string[] = [];
+  let rest = total;
+  if (months >= 6) {
+    parts.push(`${months} months`);
+    rest = daysBetween(addMonths(birth, months), on);
+  }
+  const weeks = Math.floor(rest / DAYS_PER_WEEK);
+  const days = rest % DAYS_PER_WEEK;
+  if (weeks) parts.push(weeks === 1 ? "1 week" : `${weeks} weeks`);
+  if (days || parts.length === 0) parts.push(days === 1 ? "1 day" : `${days} days`);
+  return parts.join(", ");
+}
+
+/** The same day of the month `n` months later. A day the month lacks becomes its last day: Jan 31 + 1 month is Feb 28. */
+function addMonths(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + n, Math.min(d, lastDay))).toISOString().slice(0, 10);
+}
+
+/** Whole calendar months from the birthday to a date. */
+function wholeMonths(birth: string, on: string): number {
+  const [by, bm] = birth.split("-").map(Number);
+  const [oy, om] = on.split("-").map(Number);
+  const n = (oy - by) * 12 + (om - bm);
+  return addMonths(birth, n) > on ? n - 1 : n;
+}
+
 export function todayISO(): string {
   const d = new Date();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
