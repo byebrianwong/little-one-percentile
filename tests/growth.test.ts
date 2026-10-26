@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { neighborPercentiles, percentileFromValue, valueAtPercentile, valueFromZ, zFromValue } from "../src/lib/growth";
-import { formatAge, formatPercentile, formatValue } from "../src/lib/format";
+import { formatAge, formatExactAge, formatPercentile, formatValue } from "../src/lib/format";
 import { snapAge } from "../src/lib/ages";
 
 const close = (a: number, b: number, tol: number) => assert.ok(Math.abs(a - b) <= tol, `${a} is not within ${tol} of ${b}`);
@@ -46,6 +46,23 @@ test("formats values and ages for people", () => {
   assert.equal(formatAge(15 * 30.4375), "1 year 3 months");
   assert.equal(formatPercentile(37.6), "38th");
   assert.equal(formatPercentile(0.3), "below 1st");
+});
+
+test("formats the exact age from a birthday", () => {
+  assert.equal(formatExactAge("2026-10-25", "2026-10-25"), "0 days");
+  assert.equal(formatExactAge("2026-10-20", "2026-10-25"), "5 days");
+  assert.equal(formatExactAge("2026-10-18", "2026-10-25"), "1 week");
+  assert.equal(formatExactAge("2026-07-11", "2026-10-25"), "15 weeks, 1 day");
+  // Still weeks the day before turning 6 months, then months.
+  assert.equal(formatExactAge("2026-04-25", "2026-10-24"), "26 weeks");
+  assert.equal(formatExactAge("2026-04-25", "2026-10-25"), "6 months");
+  assert.equal(formatExactAge("2026-03-10", "2026-10-25"), "7 months, 2 weeks, 1 day");
+  assert.equal(formatExactAge("2026-03-20", "2026-10-25"), "7 months, 5 days");
+  assert.equal(formatExactAge("2025-08-01", "2026-10-25"), "14 months, 3 weeks, 3 days");
+  // A birthday on the 31st turns a month older on the last day of shorter months.
+  assert.equal(formatExactAge("2025-08-31", "2026-02-28"), "6 months");
+  assert.equal(formatExactAge("2025-08-31", "2026-02-27"), "25 weeks, 5 days");
+  assert.equal(formatExactAge("2026-10-26", "2026-10-25"), null);
 });
 
 test("chart snapping lands on ages with exact labels", () => {

@@ -7,6 +7,7 @@ import {
   capitalize,
   daysBetween,
   formatAge,
+  formatExactAge,
   formatPercentile,
   formatValue,
   fromDisplay,
@@ -38,6 +39,7 @@ export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange
   const sex = b.sex ?? chartSex;
   const otherChart = !!b.sex && b.sex !== chartSex && b.measurements.length > 0;
   const sorted = [...b.measurements].sort((x, y) => y.ageDays - x.ageDays);
+  const exactAge = b.birthDate ? formatExactAge(b.birthDate, todayISO()) : null;
 
   function update(next: Partial<Baby>) {
     onChange({ ...b, ...next });
@@ -111,6 +113,18 @@ export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange
           <input className="input" type="date" value={b.birthDate ?? ""} onChange={(e) => setBirthDate(e.target.value)} />
         </label>
       </div>
+
+      {exactAge && (
+        <p className="-mt-1 text-xs text-[var(--ink-3)]">
+          {exactAge === "0 days" ? (
+            <>{b.name.trim() || "Your baby"} was born today.</>
+          ) : (
+            <>
+              {b.name.trim() || "Your baby"} is <span className="font-medium text-[var(--ink)]">{exactAge}</span> old today.
+            </>
+          )}
+        </p>
+      )}
 
       {sorted.length > 0 && (
         <ul className="flex flex-col divide-y divide-[var(--line)] rounded-xl border border-[var(--line)]">
