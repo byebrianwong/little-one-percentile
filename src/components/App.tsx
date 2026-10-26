@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import GrowthChart, { type ChartPoint } from "./GrowthChart";
 import InsightPanel, { type InsightMode } from "./InsightPanel";
 import ExplorePanel, { ExploreControls } from "./ExplorePanel";
@@ -32,6 +32,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverAge, setHoverAge] = useState<number | null>(null);
   const [baby, setBaby] = useState<Baby | null>(null);
+  const chartRef = useRef<HTMLElement>(null);
 
   // Load saved settings and the URL once, after the first render.
   useEffect(() => {
@@ -179,9 +180,34 @@ export default function App() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-5">
-          <section className="card p-5 sm:p-6" aria-label="Growth chart">
+      {/* Phones show the baby panel, the chart, then the lookup table, in page order. Wide screens put the
+          chart on the left and stack the baby panel and lookup table on the right. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
+        <div className="lg:col-start-2 lg:row-start-1">
+          <BabyPanel
+            baby={baby}
+            sex={sex}
+            metric={metric}
+            units={units}
+            onChange={(b) => {
+              setBaby(b);
+              if (!b || b.measurements.length === 0) setView("explore");
+              // A new birthday moves the chart to the baby's age today.
+              if (b?.birthDate && b.birthDate !== baby?.birthDate) {
+                const age = ageToday(b.birthDate);
+                setAgeDays(age);
+                setRangeId(rangeFor(age).id);
+                if (b.measurements.length === 0) setProbe(null);
+              }
+            }}
+            onShowChart={setSex}
+            onSelect={(m) => focusMeasurement(m, m.id)}
+            onAdded={(m) => focusMeasurement(m, null)}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <section ref={chartRef} className="card scroll-mt-4 p-5 sm:p-6" aria-label="Growth chart">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               {babyPoints.length > 0 ? (
                 <Segmented
@@ -274,27 +300,7 @@ export default function App() {
           </section>
         </div>
 
-        <aside className="flex flex-col gap-5">
-          <BabyPanel
-            baby={baby}
-            sex={sex}
-            metric={metric}
-            units={units}
-            onChange={(b) => {
-              setBaby(b);
-              if (!b || b.measurements.length === 0) setView("explore");
-              // A new birthday moves the chart to the baby's age today.
-              if (b?.birthDate && b.birthDate !== baby?.birthDate) {
-                const age = ageToday(b.birthDate);
-                setAgeDays(age);
-                setRangeId(rangeFor(age).id);
-                if (b.measurements.length === 0) setProbe(null);
-              }
-            }}
-            onShowChart={setSex}
-            onSelect={(m) => focusMeasurement(m, m.id)}
-            onAdded={(m) => focusMeasurement(m, null)}
-          />
+        <div className="lg:col-start-2 lg:row-start-2">
           <ExplorePanel
             sex={sex}
             metric={metric}
@@ -311,12 +317,13 @@ export default function App() {
             onAge={(d) => exploreAt(d)}
             onPercentile={(p) => exploreAt(mode === "explore" ? ageDays : focus.ageDays, p)}
           />
-        </aside>
+        </div>
       </div>
 
       <ReferenceTable sex={sex} metric={metric} units={units} onPick={(a, p) => {
         exploreAt(a, p);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        // Scroll to the chart, not the page top: on phones the baby panel sits above it.
+        chartRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }} />
     </div>
   );
