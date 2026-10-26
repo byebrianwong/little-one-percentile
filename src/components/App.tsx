@@ -7,12 +7,17 @@ import ExplorePanel, { ExploreControls } from "./ExplorePanel";
 import BabyPanel from "./BabyPanel";
 import ReferenceTable from "./ReferenceTable";
 import { valueAtPercentile, zFromValue, type Metric, type Sex } from "@/lib/growth";
-import { RANGES, rangeFor } from "@/lib/ages";
-import { METRIC_LABEL, daysBetween, type Units } from "@/lib/format";
+import { RANGES, rangeFor, snapAge } from "@/lib/ages";
+import { METRIC_LABEL, daysBetween, todayISO, type Units } from "@/lib/format";
 import { insightFor } from "@/lib/insight";
 import { defaultUnits, loadSaved, newId, readUrl, save, writeUrl, type Baby, type Measurement } from "@/lib/store";
 
 const DEFAULT_AGE = 91; // 13 weeks
+
+/** The baby's age today, snapped to the ages the chart uses (so between birth and 2 years). */
+function ageToday(birthDate: string): number {
+  return snapAge(daysBetween(birthDate, todayISO()));
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -38,7 +43,7 @@ export default function App() {
       b.measurements = b.measurements.map((m) => (m.date ? { ...m, ageDays: daysBetween(b.birthDate!, m.date) } : m));
     }
     const latest = b?.measurements.reduce<Measurement | null>((acc, m) => (!acc || m.ageDays > acc.ageDays ? m : acc), null);
-    const age = url.ageDays ?? latest?.ageDays ?? DEFAULT_AGE;
+    const age = url.ageDays ?? (b?.birthDate ? ageToday(b.birthDate) : latest?.ageDays) ?? DEFAULT_AGE;
     /* eslint-disable react-hooks/set-state-in-effect -- one-time load from browser storage */
     setSex(url.sex ?? saved.prefs?.sex ?? "girl");
     setMetric(url.metric ?? saved.prefs?.metric ?? "weight");
@@ -129,8 +134,8 @@ export default function App() {
   function saveProbe() {
     if (!probe) return;
     const prev: Baby = baby ?? { name: "", measurements: [] };
-    // A baby with no measurements yet takes the sex of the chart being looked at.
-    const b: Baby = prev.measurements.length === 0 ? { ...prev, sex } : prev;
+    // A baby whose sex was never chosen takes the sex of the chart the point was saved from.
+    const b: Baby = prev.sex ? prev : { ...prev, sex };
     const m: Measurement = { id: newId(), ageDays: probe.ageDays, [metric]: probe.value };
     if (b.birthDate) {
       const d = new Date(`${b.birthDate}T00:00:00Z`);
@@ -270,6 +275,26 @@ export default function App() {
         </div>
 
         <aside className="flex flex-col gap-5">
+          <BabyPanel
+            baby={baby}
+            sex={sex}
+            metric={metric}
+            units={units}
+            onChange={(b) => {
+              setBaby(b);
+              if (!b || b.measurements.length === 0) setView("explore");
+              // A new birthday moves the chart to the baby's age today.
+              if (b?.birthDate && b.birthDate !== baby?.birthDate) {
+                const age = ageToday(b.birthDate);
+                setAgeDays(age);
+                setRangeId(rangeFor(age).id);
+                if (b.measurements.length === 0) setProbe(null);
+              }
+            }}
+            onShowChart={setSex}
+            onSelect={(m) => focusMeasurement(m, m.id)}
+            onAdded={(m) => focusMeasurement(m, null)}
+          />
           <ExplorePanel
             sex={sex}
             metric={metric}
@@ -285,20 +310,6 @@ export default function App() {
             }
             onAge={(d) => exploreAt(d)}
             onPercentile={(p) => exploreAt(mode === "explore" ? ageDays : focus.ageDays, p)}
-          />
-          <BabyPanel
-            baby={baby}
-            sex={sex}
-            metric={metric}
-            units={units}
-            onChange={(b) => {
-              setBaby(b && { ...b, sex: b.sex ?? sex });
-              if (b?.sex && b.sex !== sex) setSex(b.sex);
-              if (!b || b.measurements.length === 0) setView("explore");
-            }}
-            onShowBabyChart={() => setSex(babySex)}
-            onSelect={(m) => focusMeasurement(m, m.id)}
-            onAdded={(m) => focusMeasurement(m, null)}
           />
         </aside>
       </div>

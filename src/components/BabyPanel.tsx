@@ -25,16 +25,18 @@ interface Props {
   onChange: (baby: Baby | null) => void;
   onSelect: (m: Measurement) => void;
   onAdded: (m: Measurement) => void;
-  onShowBabyChart: () => void;
+  /** Switches the chart to this sex. The chart's own toggle never changes the baby. */
+  onShowChart: (sex: Sex) => void;
 }
 
 const METRICS: Metric[] = ["weight", "length", "head"];
 
-export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange, onSelect, onAdded, onShowBabyChart }: Props) {
+export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange, onSelect, onAdded, onShowChart }: Props) {
   const [adding, setAdding] = useState(false);
   const b: Baby = baby ?? { name: "", measurements: [] };
+  // Until the baby's sex is chosen, measurements are read against the chart on screen.
   const sex = b.sex ?? chartSex;
-  const otherChart = sex !== chartSex && b.measurements.length > 0;
+  const otherChart = !!b.sex && b.sex !== chartSex && b.measurements.length > 0;
   const sorted = [...b.measurements].sort((x, y) => y.ageDays - x.ageDays);
 
   function update(next: Partial<Baby>) {
@@ -73,7 +75,7 @@ export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange
       {otherChart && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--surface-2)] px-3 py-2.5 text-xs text-[var(--ink-2)]">
           <span>Your baby&rsquo;s measurements are on the {sex === "girl" ? "girls'" : "boys'"} chart.</span>
-          <button className="btn-accent px-3 py-1.5 text-xs" onClick={onShowBabyChart}>
+          <button className="btn-accent px-3 py-1.5 text-xs" onClick={() => onShowChart(sex)}>
             Show {sex === "girl" ? "girls'" : "boys'"} chart
           </button>
         </div>
@@ -83,7 +85,16 @@ export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange
         <span>Your baby is a</span>
         <div role="radiogroup" aria-label="Your baby's sex" className="segmented segmented-sm">
           {(["girl", "boy"] as Sex[]).map((v) => (
-            <button key={v} role="radio" aria-checked={sex === v} data-on={sex === v || undefined} onClick={() => update({ sex: v })}>
+            <button
+              key={v}
+              role="radio"
+              aria-checked={b.sex === v}
+              data-on={b.sex === v || undefined}
+              onClick={() => {
+                update({ sex: v });
+                onShowChart(v);
+              }}
+            >
               {v === "girl" ? "Girl" : "Boy"}
             </button>
           ))}
@@ -141,7 +152,7 @@ export default function BabyPanel({ baby, sex: chartSex, metric, units, onChange
           defaultMetric={metric}
           onCancel={() => setAdding(false)}
           onAdd={(m) => {
-            update({ measurements: [...b.measurements, m] });
+            update({ sex, measurements: [...b.measurements, m] });
             setAdding(false);
             onAdded(m);
           }}
