@@ -1,0 +1,52 @@
+# Two checks on every pull request and every push to main:
+#
+# - Story tests: runs every story as a test in Chromium. A story fails if it does not render, if its
+#   play function fails, or if it has an accessibility violation. Prints a coverage report.
+# - Chromatic: publishes Storybook to Chromatic, which snapshots every story in light and dark mode
+#   and compares each snapshot with the accepted one. It needs the CHROMATIC_PROJECT_TOKEN secret.
+#
+# Chromatic settings (project, TurboSnap, what counts as a failure) are in chromatic.config.json.
+name: Storybook
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Story tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:stories:coverage
+
+  chromatic:
+    name: Chromatic
+    # A pull request from a fork cannot read repository secrets, so it would fail on a missing token.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Chromatic finds the baseline for each story in git history, and TurboSnap compares
+          # with earlier builds' commits. A shallow clone leaves it nothing to compare against.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: chromaui/action@v18
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
