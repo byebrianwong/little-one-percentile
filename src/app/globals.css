@@ -3,7 +3,8 @@
 /* Colour tokens. The chart uses one blue for the percentile bands (lightest at the
    extremes) and orange only for the baby's own points, so the two never compete.
    The median blue and the orange were checked for colour-blind separation and
-   contrast in both modes. */
+   contrast in both modes. --ink-3, the faintest text, is the lightest grey that
+   still reaches 4.5:1 on every surface it sits on (4.54:1 on --surface-2). */
 :root {
   color-scheme: light;
   --bg: #f7f4ee;
@@ -11,7 +12,7 @@
   --surface-2: #f5f2ec;
   --ink: #1d1b18;
   --ink-2: #55524c;
-  --ink-3: #7c786f;
+  --ink-3: #726e66;
   --line: #ebe6dd;
   --grid: #f0ece5;
   --axis: #cfc9be;
@@ -24,6 +25,8 @@
   --median: #1c5cab;
   --highlight: #184f95;
   --highlight-ink: #184f95;
+  /* Text on a --highlight background, such as a selected chip. */
+  --on-highlight: #ffffff;
   --accent: #eb6834;
   --accent-ink: #b8461a;
   --danger: #b42318;
@@ -50,6 +53,8 @@
     --median: #3987e5;
     --highlight: #6da7ec;
     --highlight-ink: #86b6ef;
+    /* White on this lighter blue is only 2.5:1, so selected chips use dark text. */
+    --on-highlight: #121211;
     --accent: #d95926;
     --accent-ink: #f08a5d;
     --danger: #f97066;
@@ -74,6 +79,7 @@
   --median: #3987e5;
   --highlight: #6da7ec;
   --highlight-ink: #86b6ef;
+  --on-highlight: #121211;
   --accent: #d95926;
   --accent-ink: #f08a5d;
   --danger: #f97066;
@@ -161,7 +167,7 @@ body {
   }
   .chip[data-on] {
     background: var(--highlight);
-    color: #fff;
+    color: var(--on-highlight);
   }
 
   .input {

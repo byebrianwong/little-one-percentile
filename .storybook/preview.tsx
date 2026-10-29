@@ -50,13 +50,8 @@ const preview: Preview = {
         dark: { theme: "dark" },
       },
     },
-    // Accessibility violations fail the story's test. One rule is off for now: the light theme's
-    // faintest text colour (--ink-3, #7c786f) is 4.39:1 on white and 3.93:1 on --surface-2, under
-    // the 4.5:1 that small text needs. Turn the rule back on once that colour is darkened.
-    a11y: {
-      test: "error",
-      config: { rules: [{ id: "color-contrast", enabled: false }] },
-    },
+    // Accessibility violations fail the story's test.
+    a11y: { test: "error" },
   },
 };
 
