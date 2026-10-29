@@ -16,8 +16,8 @@ const meta = {
   ],
   beforeEach() {
     // App copies the chart settings into the page URL. In Storybook that URL belongs to the preview
-    // frame, so the write is recorded instead of made.
-    spyOn(history, "replaceState").mockImplementation(() => {});
+    // frame, so the write is recorded instead of made. The record starts empty (see loaded()).
+    spyOn(history, "replaceState").mockImplementation(() => {}).mockClear();
     // fireEvent's synthetic pointer events cannot be captured by the browser (see GrowthChart.stories).
     spyOn(Element.prototype, "setPointerCapture").mockImplementation(() => {});
     spyOn(Element.prototype, "releasePointerCapture").mockImplementation(() => {});
@@ -33,6 +33,16 @@ const headline = (canvas: HTMLElement) => canvas.querySelector<HTMLElement>('[ar
 
 const group = (canvas: HTMLElement, name: string) => within(within(canvas).getByRole("radiogroup", { name }));
 
+/**
+ * Waits until App has loaded the saved settings and baby. App loads them in an effect after its
+ * first render, and that first render already shows a full chart, so anything a test changes
+ * before the load is undone by it. Once loaded, App writes the settings to the URL 250 ms later;
+ * that recorded write is the sign it has loaded.
+ */
+async function loaded() {
+  await waitFor(() => expect(history.replaceState).toHaveBeenCalled());
+}
+
 /** Waits until the chart has measured itself, then returns its plot area. */
 async function plot(canvas: HTMLElement) {
   await waitFor(() => expect(canvas.querySelector('section[aria-label="Growth chart"] svg')).toHaveAttribute("height"));
@@ -47,6 +57,7 @@ function at(el: Element, fx: number, fy: number) {
 /** A first visit: exploring the girls' weight chart at 13 weeks. */
 export const FirstVisit: Story = {
   play: async ({ canvasElement, canvas }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent("At 13 weeks, a girl on the 50th percentile weighs 12 lb 14 oz."));
     await expect(canvas.getByText("Exploring")).toBeInTheDocument();
   },
@@ -56,6 +67,7 @@ export const FirstVisit: Story = {
 export const ReturningWithABaby: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent("At 4 months, Maya weighs 14 lb 5 oz (54th percentile)."));
     await expect(group(canvasElement, "View").getByRole("radio", { name: "Maya" })).toHaveAttribute("aria-checked", "true");
   },
@@ -64,6 +76,7 @@ export const ReturningWithABaby: Story = {
 /** The controls change every part at once, and the settings are saved and written to the URL. */
 export const ChangeSexMeasureAndUnits: Story = {
   play: async ({ canvasElement, userEvent }) => {
+    await loaded();
     await userEvent.click(group(canvasElement, "Sex").getByRole("radio", { name: "Boy" }));
     await userEvent.click(group(canvasElement, "Measure").getByRole("radio", { name: "Length" }));
     await userEvent.click(group(canvasElement, "Units").getByRole("radio", { name: /kg/ }));
@@ -87,6 +100,7 @@ export const OpenASharedLink: Story = {
     return () => History.prototype.replaceState.call(history, null, "", original);
   },
   play: async ({ canvasElement }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 6 months, a boy on the 90th percentile has a [\d.]+ in head\.$/));
     await expect(group(canvasElement, "Measure").getByRole("radio", { name: "Head" })).toHaveAttribute("aria-checked", "true");
   },
@@ -95,6 +109,7 @@ export const OpenASharedLink: Story = {
 /** Pinning a point on the chart, then saving it as the baby's first measurement. */
 export const PinAPointAndSaveIt: Story = {
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     const el = await plot(canvasElement);
     await fireEvent.pointerDown(el, at(el, 0.6, 0.4));
     await fireEvent.pointerUp(el, at(el, 0.6, 0.4));
@@ -114,6 +129,7 @@ export const PinAPointAndSaveIt: Story = {
 export const SaveAPointForABabyWithABirthday: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, { name: "", sex: "girl", birthDate: MAYA.birthDate, measurements: [] }),
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     const el = await plot(canvasElement);
     await fireEvent.pointerDown(el, at(el, 0.5, 0.5));
     await fireEvent.pointerUp(el, at(el, 0.5, 0.5));
@@ -125,6 +141,7 @@ export const SaveAPointForABabyWithABirthday: Story = {
 /** The Clear button and the Escape key both unpin the point. */
 export const UnpinThePoint: Story = {
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     const el = await plot(canvasElement);
     await fireEvent.pointerDown(el, at(el, 0.4, 0.5));
     await fireEvent.pointerUp(el, at(el, 0.4, 0.5));
@@ -143,6 +160,7 @@ export const UnpinThePoint: Story = {
 /** The side panel's controls explore from the current point. An age past the chart's edge widens the chart. */
 export const ExploreFromTheSidePanel: Story = {
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 13 weeks/));
     await userEvent.click(canvas.getByRole("button", { name: "Older" }));
     await expect(headline(canvasElement)).toHaveTextContent(/^At 14 weeks, a girl on the 50th/);
@@ -160,6 +178,7 @@ export const ExploreFromTheSidePanel: Story = {
 export const SwitchBetweenTheBabyAndExploring: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement, userEvent }) => {
+    await loaded();
     // The View switch only appears once App has loaded the saved baby.
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/Maya weighs/));
     const view = group(canvasElement, "View");
@@ -174,6 +193,7 @@ export const SwitchBetweenTheBabyAndExploring: Story = {
 export const SelectACheckupInThePanel: Story = {
   beforeEach: () => seedStorage({ ...DEFAULT_PREFS, metric: "length" }, MAYA),
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 14 weeks, Maya is [\d.]+ in long/));
     await userEvent.click(within(canvas.getByRole("region", { name: "Your baby" })).getByText("4 weeks"));
     await expect(headline(canvasElement)).toHaveTextContent("At 4 weeks, Maya weighs 9 lb 8 oz (59th percentile).");
@@ -185,6 +205,7 @@ export const SelectACheckupInThePanel: Story = {
 export const SelectACheckupOnTheChart: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement }) => {
+    await loaded();
     const el = await plot(canvasElement);
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/Maya weighs/));
     // The unselected dots, in age order: birth, 4 weeks, 9 weeks, 14 weeks. The latest checkup is selected.
@@ -198,6 +219,7 @@ export const SelectACheckupOnTheChart: Story = {
 export const AddACheckup: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     await userEvent.click(await canvas.findByRole("button", { name: "+ Add a measurement" }));
     await userEvent.type(canvas.getByRole("textbox", { name: "Pounds" }), "15");
     await userEvent.click(canvas.getByRole("button", { name: "Save" }));
@@ -208,6 +230,7 @@ export const AddACheckup: Story = {
 /** Entering a birthday moves the chart to the baby's age today. */
 export const ABirthdayMovesTheChart: Story = {
   play: async ({ canvasElement, canvas }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 13 weeks/));
     await fireEvent.change(canvas.getByLabelText("Birthday (optional)"), { target: { value: "2025-12-15" } });
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 6 months, a girl on the 50th percentile/));
@@ -219,6 +242,7 @@ export const ABirthdayMovesTheChart: Story = {
 export const ResetTheBaby: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     spyOn(window, "confirm").mockReturnValue(true);
     await userEvent.click(await canvas.findByRole("button", { name: "Reset" }));
     await expect(canvas.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
@@ -230,6 +254,7 @@ export const ResetTheBaby: Story = {
 /** Clicking a value in the table shows it on the chart. */
 export const PickFromTheTable: Story = {
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     await userEvent.click(canvas.getByText("Full table: girls' weight by age"));
     const row = canvas.getByRole("row", { name: /^6 months/ });
     await userEvent.click(within(row).getAllByRole("button")[5]);
@@ -241,6 +266,7 @@ export const PickFromTheTable: Story = {
 export const BabyOnTheOtherChart: Story = {
   beforeEach: () => seedStorage({ ...DEFAULT_PREFS, sex: "boy" }, MAYA),
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     // Wait for App to load the saved baby; until then there is no View switch for any reason.
     const show = await canvas.findByRole("button", { name: "Show girls' chart" });
     await expect(canvas.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
@@ -254,6 +280,7 @@ export const BabyOnTheOtherChart: Story = {
 export const OnAPhone: Story = {
   ...PHONE,
   play: async ({ canvasElement, canvas, userEvent }) => {
+    await loaded();
     await expect(await canvas.findByText("Tap the chart to pin a point, then drag it.")).toBeVisible();
     // Both copies of the controls are in the page; on a phone only the one under the chart shows.
     const older = canvas.getAllByRole("button", { name: "Older" }).find((b) => b.checkVisibility())!;
@@ -268,6 +295,7 @@ export const ReturningWithABabyOnAPhone: Story = {
   ...PHONE,
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement }) => {
+    await loaded();
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent("Maya weighs"));
   },
 };
