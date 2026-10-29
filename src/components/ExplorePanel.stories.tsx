@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fireEvent, fn } from "storybook/test";
+import { expect, fireEvent, fn, waitFor } from "storybook/test";
 import ExplorePanel from "./ExplorePanel";
 import { percentileFromValue } from "@/lib/growth";
 
@@ -124,7 +124,7 @@ export const TypeAnyPercentile: Story = {
     const input = canvas.getByRole("spinbutton", { name: "Choose any percentile from 1 to 99" });
     await fireEvent.change(input, { target: { value: "33" } });
     await expect(args.onPercentile).toHaveBeenLastCalledWith(33);
-    await expect(canvas.getByText("33rd")).toBeInTheDocument();
+    await expect(await canvas.findByText("33rd")).toBeInTheDocument();
 
     await fireEvent.change(input, { target: { value: "150" } });
     await fireEvent.change(input, { target: { value: "0" } });
@@ -147,7 +147,7 @@ export const ChangeTheAge: Story = {
     // The slider moves through the same ages, by position.
     await fireEvent.change(slider, { target: { value: "0" } });
     await expect(args.onAge).toHaveBeenLastCalledWith(0);
-    await expect(slider).toHaveAttribute("aria-valuetext", "birth");
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuetext", "birth"));
   },
 };
 

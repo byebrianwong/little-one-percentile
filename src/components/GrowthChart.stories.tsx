@@ -123,7 +123,8 @@ export const HoverReadout: Story = {
     await step("Leaving hides it", async () => {
       // React turns pointerout into its onPointerLeave; a bare pointerleave event never reaches it.
       await fireEvent.pointerOut(plot(canvasElement), { relatedTarget: canvasElement });
-      await expect(canvas.queryByText(/percentile$/)).not.toBeInTheDocument();
+      // React applies updates from pointer movement a moment later, not during the event.
+      await waitFor(() => expect(canvas.queryByText(/percentile$/)).not.toBeInTheDocument());
       await expect(args.onHoverAge).toHaveBeenLastCalledWith(null);
     });
 

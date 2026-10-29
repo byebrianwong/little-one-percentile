@@ -105,7 +105,7 @@ export const NameAndBirthday: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.type(canvas.getByRole("textbox", { name: "Name (optional)" }), "Maya");
     await fireEvent.change(canvas.getByLabelText("Birthday (optional)"), { target: { value: "2026-02-10" } });
-    await expect(canvas.getByText(/Maya is/)).toHaveTextContent("Maya is 17 weeks, 6 days old today.");
+    await expect(await canvas.findByText(/Maya is/)).toHaveTextContent("Maya is 17 weeks, 6 days old today.");
   },
 };
 
@@ -115,7 +115,7 @@ export const ChangingTheBirthdayMovesDatedCheckups: Story = {
   play: async ({ args, canvas }) => {
     await expect(canvas.getByText("14 weeks")).toBeInTheDocument();
     await fireEvent.change(canvas.getByLabelText("Birthday (optional)"), { target: { value: "2026-02-03" } });
-    await expect(canvas.getByText("15 weeks")).toBeInTheDocument();
+    await expect(await canvas.findByText("15 weeks")).toBeInTheDocument();
     await expect(canvas.getByText(/Maya is/)).toHaveTextContent("Maya is 18 weeks, 6 days old today.");
     const saved = (args.onChange as ReturnType<typeof fn>).mock.lastCall![0];
     await expect(saved.measurements.find((m: { id: string }) => m.id === "m4").ageDays).toBe(105);

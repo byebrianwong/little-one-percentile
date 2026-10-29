@@ -99,7 +99,7 @@ export const PinAPointAndSaveIt: Story = {
     await fireEvent.pointerDown(el, at(el, 0.6, 0.4));
     await fireEvent.pointerUp(el, at(el, 0.6, 0.4));
 
-    await expect(canvas.getByText("Pinned point")).toBeInTheDocument();
+    await expect(await canvas.findByText("Pinned point")).toBeInTheDocument();
     await expect(headline(canvasElement)).toHaveTextContent(/percentile for girls\.$/);
 
     await userEvent.click(canvas.getByRole("button", { name: "Save as my baby’s measurement" }));
@@ -117,7 +117,7 @@ export const SaveAPointForABabyWithABirthday: Story = {
     const el = await plot(canvasElement);
     await fireEvent.pointerDown(el, at(el, 0.5, 0.5));
     await fireEvent.pointerUp(el, at(el, 0.5, 0.5));
-    await userEvent.click(canvas.getByRole("button", { name: "Save as my baby’s measurement" }));
+    await userEvent.click(await canvas.findByRole("button", { name: "Save as my baby’s measurement" }));
     await waitFor(() => expect(readStorage().baby?.measurements[0].date).toMatch(/^2026-\d\d-\d\d$/));
   },
 };
@@ -128,12 +128,12 @@ export const UnpinThePoint: Story = {
     const el = await plot(canvasElement);
     await fireEvent.pointerDown(el, at(el, 0.4, 0.5));
     await fireEvent.pointerUp(el, at(el, 0.4, 0.5));
-    await userEvent.click(canvas.getByRole("button", { name: "Clear the pinned point" }));
+    await userEvent.click(await canvas.findByRole("button", { name: "Clear the pinned point" }));
     await expect(canvas.getByText("Exploring")).toBeInTheDocument();
 
     await fireEvent.pointerDown(el, at(el, 0.4, 0.5));
     await fireEvent.pointerUp(el, at(el, 0.4, 0.5));
-    await expect(canvas.getByRole("button", { name: "Clear the pinned point" })).toBeInTheDocument();
+    await expect(await canvas.findByRole("button", { name: "Clear the pinned point" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await expect(canvas.getByText("Exploring")).toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: "Clear the pinned point" })).not.toBeInTheDocument();
@@ -159,13 +159,14 @@ export const ExploreFromTheSidePanel: Story = {
 /** The View switch moves between the baby's latest checkup and exploring. */
 export const SwitchBetweenTheBabyAndExploring: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
-  play: async ({ canvasElement }) => {
-    const view = group(canvasElement, "View");
+  play: async ({ canvasElement, userEvent }) => {
+    // The View switch only appears once App has loaded the saved baby.
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/Maya weighs/));
-    await fireEvent.click(view.getByRole("radio", { name: "Explore" }));
-    await expect(headline(canvasElement)).toHaveTextContent(/^At 4 months, a girl on the 50th percentile weighs/);
-    await fireEvent.click(view.getByRole("radio", { name: "Maya" }));
-    await expect(headline(canvasElement)).toHaveTextContent(/Maya weighs/);
+    const view = group(canvasElement, "View");
+    await userEvent.click(view.getByRole("radio", { name: "Explore" }));
+    await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 4 months, a girl on the 50th percentile weighs/));
+    await userEvent.click(view.getByRole("radio", { name: "Maya" }));
+    await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/Maya weighs/));
   },
 };
 
@@ -185,10 +186,11 @@ export const SelectACheckupOnTheChart: Story = {
   beforeEach: () => seedStorage(DEFAULT_PREFS, MAYA),
   play: async ({ canvasElement }) => {
     const el = await plot(canvasElement);
+    await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/Maya weighs/));
     // The unselected dots, in age order: birth, 4 weeks, 9 weeks, 14 weeks. The latest checkup is selected.
     const dots = canvasElement.querySelectorAll('circle[fill="var(--accent)"][r="5"]');
     await fireEvent.pointerDown(el, at(dots[2], 0.5, 0.5));
-    await expect(headline(canvasElement)).toHaveTextContent("At 9 weeks, Maya weighs 11 lb 11 oz (57th percentile).");
+    await waitFor(() => expect(headline(canvasElement)).toHaveTextContent("At 9 weeks, Maya weighs 11 lb 11 oz (57th percentile)."));
   },
 };
 
@@ -208,7 +210,7 @@ export const ABirthdayMovesTheChart: Story = {
   play: async ({ canvasElement, canvas }) => {
     await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 13 weeks/));
     await fireEvent.change(canvas.getByLabelText("Birthday (optional)"), { target: { value: "2025-12-15" } });
-    await expect(headline(canvasElement)).toHaveTextContent(/^At 6 months, a girl on the 50th percentile/);
+    await waitFor(() => expect(headline(canvasElement)).toHaveTextContent(/^At 6 months, a girl on the 50th percentile/));
     await expect(group(canvasElement, "Age range").getByRole("radio", { name: "1 yr" })).toHaveAttribute("aria-checked", "true");
   },
 };
@@ -239,8 +241,10 @@ export const PickFromTheTable: Story = {
 export const BabyOnTheOtherChart: Story = {
   beforeEach: () => seedStorage({ ...DEFAULT_PREFS, sex: "boy" }, MAYA),
   play: async ({ canvasElement, canvas, userEvent }) => {
+    // Wait for App to load the saved baby; until then there is no View switch for any reason.
+    const show = await canvas.findByRole("button", { name: "Show girls' chart" });
     await expect(canvas.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
-    await userEvent.click(await canvas.findByRole("button", { name: "Show girls' chart" }));
+    await userEvent.click(show);
     await expect(group(canvasElement, "Sex").getByRole("radio", { name: "Girl" })).toHaveAttribute("aria-checked", "true");
     await expect(canvas.getByRole("radiogroup", { name: "View" })).toBeInTheDocument();
   },
