@@ -56,22 +56,26 @@ export default function GrowthChart(props: Props) {
   const { sex, metric, units, range, explore, probe, babyPoints, projectFrom, selectedId, onHoverAge, onProbe, onSelectBaby } = props;
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  // Until the real width is measured (and in the server-rendered HTML), the chart
-  // is drawn at 720 px and scaled to fit, so the page never shows an empty box.
-  const [measured, setWidth] = useState(0);
-  const width = measured || 720;
+  // CSS sets the chart's size (see the wrapper below); the drawing follows the measured box.
+  // Until it is measured (and in the server-rendered HTML), the chart is drawn at 720 × 504
+  // and scaled to fit, so the page never shows an empty box.
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const measured = size.w > 0;
+  const width = size.w || 720;
+  const height = size.h || 504;
   const [hover, setHover] = useState<ChartPoint | null>(null);
+  // Whether the last pointer was a finger or pen, which moves the readout above it.
+  const [touch, setTouch] = useState(false);
   const dragging = useRef(false);
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    const ro = new ResizeObserver(([entry]) => setSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const height = Math.round(Math.min(460, Math.max(300, width * 0.58)));
   const innerW = Math.max(10, width - M.left - M.right);
   const innerH = height - M.top - M.bottom;
   const maxAge = range.days;
@@ -159,6 +163,8 @@ export default function GrowthChart(props: Props) {
   // ---- pointer handling ----
   // Moving over the chart reads out the percentile under the pointer.
   // Pressing pins a point there; dragging moves the pinned point.
+  // The events land on an HTML element over the plot, not on the SVG: Chromium ignored
+  // touch-action on an SVG shape, so a drag there scrolled the page instead of moving the point.
 
   function pointFromEvent(e: React.PointerEvent): ChartPoint | null {
     const svg = svgRef.current;
@@ -174,6 +180,7 @@ export default function GrowthChart(props: Props) {
   function onPointerMove(e: React.PointerEvent) {
     const p = pointFromEvent(e);
     if (!p) return;
+    setTouch(e.pointerType !== "mouse");
     setHover(p);
     onHoverAge(p.ageDays);
     if (dragging.current) onProbe(p);
@@ -183,24 +190,28 @@ export default function GrowthChart(props: Props) {
     if (e.button !== 0) return;
     const p = pointFromEvent(e);
     if (!p) return;
+    const isTouch = e.pointerType !== "mouse";
+    setTouch(isTouch);
     // Pressing on a saved measurement selects it instead of pinning a new point.
+    // A fingertip is less precise than a mouse, so it gets a larger target.
     const r = svgRef.current!.getBoundingClientRect();
+    const reach = isTouch ? 24 : 14;
     const hit = babyPoints.find(
-      (b) => b.ageDays <= maxAge && Math.hypot(x(b.ageDays) - (e.clientX - r.left), y(b.value) - (e.clientY - r.top)) < 14,
+      (b) => b.ageDays <= maxAge && Math.hypot(x(b.ageDays) - (e.clientX - r.left), y(b.value) - (e.clientY - r.top)) < reach,
     );
     if (hit && !(probe && Math.hypot(x(probe.ageDays) - x(hit.ageDays), y(probe.value) - y(hit.value)) < 1)) {
       onSelectBaby(hit.id);
       return;
     }
     dragging.current = true;
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     setHover(p);
     onProbe(p);
   }
 
   function endDrag(e: React.PointerEvent) {
     dragging.current = false;
-    (e.target as Element).releasePointerCapture?.(e.pointerId);
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
     if (e.pointerType !== "mouse") {
       setHover(null);
       onHoverAge(null);
@@ -250,21 +261,36 @@ export default function GrowthChart(props: Props) {
         })()
       : [];
   const neighborSet = new Set(hoverNeighbors.map((n) => n.p));
-  const tipLeft = hover ? x(hover.ageDays) : 0;
-  const tipFlip = tipLeft > width - 230;
+  const tipX = hover ? x(hover.ageDays) : 0;
+  const tipY = hover ? y(hover.value) : 0;
+  // A mouse gets the readout beside the pointer. A finger would cover that spot, so on
+  // touch screens the readout sits above the finger, leaning toward the wider side.
+  const tipStyle: React.CSSProperties = touch
+    ? tipX < width / 2
+      ? { top: tipY - 44, left: Math.max(0, tipX - 48), transform: "translateY(-100%)" }
+      : { top: tipY - 44, right: Math.max(0, width - tipX - 48), transform: "translateY(-100%)" }
+    : tipX > width - 230
+      ? { top: Math.max(0, Math.min(tipY - 30, height - 130)), right: width - tipX + 14 }
+      : { top: Math.max(0, Math.min(tipY - 30, height - 130)), left: tipX + 14 };
 
   const summary = `${sex === "girl" ? "Girls" : "Boys"}' ${metric} percentiles from birth to ${formatAge(maxAge)}, showing the 3rd, 10th, 25th, 50th, 75th, 90th and 97th percentile lines.`;
 
   return (
-    <div ref={wrapRef} className="relative w-full select-none">
+    // Taller than wide on phones and 10:7 on wider screens, so the bands have room to separate.
+    // Capped at 72% of the screen's height (but at least 300 px), so on a phone there is
+    // always some page outside the plot to scroll by.
+    <div
+      ref={wrapRef}
+      className="relative aspect-[5/6] max-h-[min(600px,72svh)] min-h-[300px] w-full select-none sm:aspect-[10/7]"
+    >
       <svg
         ref={svgRef}
         width={measured ? width : "100%"}
-        height={measured ? height : undefined}
+        height={measured ? height : "100%"}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={summary}
-        className="block overflow-visible"
+        className="absolute inset-0 block overflow-visible"
       >
         {/* grid */}
         <g className="text-[11px]" fill="var(--ink-3)">
@@ -371,31 +397,25 @@ export default function GrowthChart(props: Props) {
             <circle cx={x(hover.ageDays)} cy={y(hover.value)} r={4} fill="var(--ink)" stroke="var(--surface)" strokeWidth={2} />
           </g>
         )}
-
-        {/* hit area for the plot */}
-        <rect
-          x={M.left}
-          y={M.top}
-          width={innerW}
-          height={innerH}
-          fill="transparent"
-          style={{ touchAction: "none", cursor: "crosshair" }}
-          onPointerMove={onPointerMove}
-          onPointerDown={onPointerDown}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onPointerLeave={onPointerLeave}
-        />
       </svg>
 
-      {measured > 0 && hover && hoverPct !== null && (
+      {/* Hit area for the plot. Dragging here moves the point rather than scrolling the page;
+          the axes and everything around the plot still scroll as usual. */}
+      <div
+        data-plot
+        className="absolute cursor-crosshair touch-none"
+        style={{ left: M.left, top: M.top, width: innerW, height: innerH }}
+        onPointerMove={onPointerMove}
+        onPointerDown={onPointerDown}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onPointerLeave={onPointerLeave}
+      />
+
+      {measured && hover && hoverPct !== null && (
         <div
           className="pointer-events-none absolute z-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs shadow-lg"
-          style={{
-            top: Math.max(0, Math.min(y(hover.value) - 30, height - 130)),
-            left: tipFlip ? undefined : tipLeft + 14,
-            right: tipFlip ? width - tipLeft + 14 : undefined,
-          }}
+          style={tipStyle}
         >
           <div className="text-[var(--ink-2)]">{capitalize(formatAge(hover.ageDays))}</div>
           <div className="mt-0.5 whitespace-nowrap">
