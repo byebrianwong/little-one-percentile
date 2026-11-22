@@ -47,7 +47,7 @@ type Story = StoryObj<typeof meta>;
 
 /** The plot area that receives pointer events. */
 function plot(canvas: HTMLElement) {
-  return canvas.querySelector<SVGRectElement>('rect[fill="transparent"]')!;
+  return canvas.querySelector<HTMLElement>("[data-plot]")!;
 }
 
 /** Client coordinates at a fraction of the plot's width and height, from its top left. */
@@ -155,6 +155,23 @@ export const PressAndDragPinsAPoint: Story = {
     await fireEvent.pointerUp(el, at(el, 0.8, 0.2));
     await fireEvent.pointerMove(el, at(el, 0.6, 0.4));
     await expect(args.onProbe).toHaveBeenCalledTimes(2);
+  },
+};
+
+/** On a touch screen, dragging on the plot moves the point instead of scrolling the page, and the readout sits above the finger. */
+export const TouchPressShowsReadoutAboveFinger: Story = {
+  play: async ({ args, canvasElement }) => {
+    await measured(canvasElement);
+    const el = plot(canvasElement);
+    // Chromium ignored touch-action on an SVG shape, so the hit area has to be an HTML element.
+    await expect(el).toBeInstanceOf(HTMLElement);
+    await expect(getComputedStyle(el).touchAction).toBe("none");
+
+    const point = at(el, 0.5, 0.6);
+    await fireEvent.pointerDown(el, { ...point, pointerType: "touch" });
+    await expect(args.onProbe).toHaveBeenCalledTimes(1);
+    const tip = (await within(canvasElement).findByText(/percentile$/)).closest("div.absolute")!;
+    await expect(tip.getBoundingClientRect().bottom).toBeLessThan(point.clientY);
   },
 };
 

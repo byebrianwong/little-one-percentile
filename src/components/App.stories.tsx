@@ -46,7 +46,7 @@ async function loaded() {
 /** Waits until the chart has measured itself, then returns its plot area. */
 async function plot(canvas: HTMLElement) {
   await waitFor(() => expect(canvas.querySelector('section[aria-label="Growth chart"] svg')).toHaveAttribute("height"));
-  return canvas.querySelector<SVGRectElement>('rect[fill="transparent"]')!;
+  return canvas.querySelector<HTMLElement>("[data-plot]")!;
 }
 
 function at(el: Element, fx: number, fy: number) {
